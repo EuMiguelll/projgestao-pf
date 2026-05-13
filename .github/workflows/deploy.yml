@@ -17,7 +17,7 @@ env:
   AUTH0_DOMAIN: dev-v1m8tdebhfeuadpf.us.auth0.com
   AUTH0_AUDIENCE: https://projgestao-pf/api
   AUTH0_CLIENT_ID: agORG7vOMGkDyJk8Ax4eJd0M9V2a3lmy
-  API_URL: http://18.230.59.131/api
+  API_URL: http://18.230.59.131:8080
 
 jobs:
   build-and-deploy:

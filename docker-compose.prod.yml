@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: cursos
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: cursos
+    ports:
+      - "8081:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -22,9 +24,9 @@ services:
       DATABASE_URL: postgres://cursos:${POSTGRES_PASSWORD}@postgres:5432/cursos
       AUTH0_DOMAIN: ${AUTH0_DOMAIN}
       AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
-      ALLOWED_ORIGINS: http://18.230.59.131,http://18.230.59.131:8080,http://18.230.59.131:8081,http://18.230.59.131:8082
-    expose:
-      - "3000"
+      ALLOWED_ORIGINS: http://18.230.59.131,http://localhost:5173
+    ports:
+      - "8080:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,9 +37,6 @@ services:
     pull_policy: always
     ports:
       - "80:80"
-      - "8080:80"
-      - "8081:80"
-      - "8082:80"
     restart: unless-stopped
     depends_on:
       - backend

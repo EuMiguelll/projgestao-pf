@@ -94,7 +94,9 @@ bibliotecas de UI externas.
 
 **Infra** — Docker Compose com 3 serviços (postgres / backend / frontend),
 Nginx servindo o build estático do React dentro do container do frontend
-(com fallback `try_files` para a SPA e gzip).
+(com fallback `try_files` para a SPA e gzip). Cada serviço numa porta
+pública distinta na EC2: frontend em `:80`, backend em `:8080`,
+Postgres em `:8081`.
 
 **CI/CD** — GitHub Actions: build das imagens, push para Docker Hub
 (`eumiguel/projgestao-back` e `eumiguel/projgestao-front`), SCP do
