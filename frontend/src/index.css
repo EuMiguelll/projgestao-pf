@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-feature-settings: "ss01", "cv01", "cv03";
+  }
+  ::selection {
+    background: #E8D9B5;
+    color: #0B1B2B;
+  }
+  /* Subtle paper texture using SVG noise (no external asset) */
+  .paper-grain {
+    background-image: radial-gradient(rgba(11,27,43,.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+  /* Decorative top hairline */
+  .hairline-top {
+    box-shadow: inset 0 1px 0 rgba(11,27,43,.06);
+  }
+  .display-feature {
+    font-feature-settings: "ss01", "ss02";
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-150 border rounded-lg select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-paper border-ink hover:bg-ink-soft shadow-soft;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-ink border-line hover:bg-paper-deep;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink border-transparent hover:bg-paper-deep;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-paper border-danger hover:opacity-90;
+  }
+  .input {
+    @apply form-input w-full bg-white text-ink placeholder:text-muted/70 border border-line rounded-lg px-3 py-2 text-sm transition focus:border-accent focus:ring-1 focus:ring-accent/40;
+  }
+  .select {
+    @apply form-select w-full bg-white text-ink border border-line rounded-lg px-3 py-2 text-sm transition focus:border-accent focus:ring-1 focus:ring-accent/40;
+  }
+  .label {
+    @apply block text-xs font-medium tracking-wider uppercase text-muted mb-1;
+  }
+  .card {
+    @apply bg-white border border-line rounded-lg shadow-soft;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-line rounded-full bg-white text-ink/80;
+  }
+  .chip-active {
+    @apply bg-ink text-paper border-ink;
+  }
+}
+
+@layer utilities {
+  .shimmer-bg {
+    background: linear-gradient(90deg, #efe9d8 0%, #f7f4ec 40%, #efe9d8 80%);
+    background-size: 800px 100%;
+  }
+}

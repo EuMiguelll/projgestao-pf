@@ -1,0 +1,128 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_USERNAME: eumiguel
+  BACKEND_IMAGE: eumiguel/projgestao-back
+  FRONTEND_IMAGE: eumiguel/projgestao-front
+  DEPLOY_HOST: 18.230.59.131
+  DEPLOY_USER: ubuntu
+  DEPLOY_DIR: /home/ubuntu/projgestao-pf
+
+  # Public Auth0 config (these end up in the JS bundle anyway — they are NOT secrets)
+  AUTH0_DOMAIN: dev-v1m8tdebhfeuadpf.us.auth0.com
+  AUTH0_AUDIENCE: https://projgestao-pf/api
+  AUTH0_CLIENT_ID: agORG7vOMGkDyJk8Ax4eJd0M9V2a3lmy
+  API_URL: http://18.230.59.131/api
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache,mode=max
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          build-args: |
+            VITE_AUTH0_DOMAIN=${{ env.AUTH0_DOMAIN }}
+            VITE_AUTH0_CLIENT_ID=${{ env.AUTH0_CLIENT_ID }}
+            VITE_AUTH0_AUDIENCE=${{ env.AUTH0_AUDIENCE }}
+            VITE_API_URL=${{ env.API_URL }}
+          cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache,mode=max
+
+      - name: Copy docker-compose.prod.yml to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml"
+          target: ${{ env.DEPLOY_DIR }}
+
+      - name: Deploy on remote server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          AUTH0_DOMAIN: ${{ env.AUTH0_DOMAIN }}
+          AUTH0_AUDIENCE: ${{ env.AUTH0_AUDIENCE }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: AUTH0_DOMAIN,AUTH0_AUDIENCE,POSTGRES_PASSWORD
+          script: |
+            set -e
+            PROJECT="projgestao-pf"
+            mkdir -p ${{ env.DEPLOY_DIR }}
+
+            echo "::group::Cleanup foreign containers"
+            for cid in $(docker ps -aq); do
+              proj=$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$cid" 2>/dev/null || echo "")
+              if [ "$proj" != "$PROJECT" ]; then
+                name=$(docker inspect --format '{{ .Name }}' "$cid" 2>/dev/null | sed 's|^/||')
+                echo "Removing foreign container: $name"
+                docker rm -f "$cid" >/dev/null 2>&1 || true
+              fi
+            done
+            echo "::endgroup::"
+
+            echo "::group::Prune networks not in use"
+            docker network prune -f >/dev/null 2>&1 || true
+            echo "::endgroup::"
+
+            cd ${{ env.DEPLOY_DIR }}
+            cat > .env <<EOF
+            POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+            AUTH0_DOMAIN=$AUTH0_DOMAIN
+            AUTH0_AUDIENCE=$AUTH0_AUDIENCE
+            EOF
+            chmod 600 .env
+
+            echo "::group::Pull and start project"
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            echo "::endgroup::"
+
+            echo "::group::Prune dangling images & unused volumes"
+            docker image prune -af >/dev/null 2>&1 || true
+            docker volume prune -f >/dev/null 2>&1 || true
+            echo "::endgroup::"
+
+            echo "::group::Final state"
+            docker compose -f docker-compose.prod.yml ps
+            echo
+            echo "All containers on host:"
+            docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+            echo "::endgroup::"
